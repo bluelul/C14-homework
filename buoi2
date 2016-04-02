@@ -1,0 +1,91 @@
+#include<msp430.h>
+int t=0,stt=1,idx=0;
+void main(void){
+
+  WDTCTL = WDTPW + WDTHOLD;                // Stop WDT
+
+  //config timer a0
+  TA0CCR0=3200;
+  TA0CCR1=200;
+  TA0CCR2=1600;
+
+  TA0CTL |= TASSEL_2 + MC_1 + TAIE + TAIFG;
+  TA0CCTL1 |= CCIE+CCIFG;
+  TA0CCTL2 |= CCIE+CCIFG;
+
+  /**config 8 led P1 out**/
+    P1DIR = 0xFF;
+    P1OUT = 0xFF;
+
+
+    /**CONFIG BUTTON**/
+    P2DIR &= ~(BIT0+BIT1);
+    P2OUT |= BIT0+BIT1;
+    P2REN |= BIT0+BIT1;
+
+    P2IE |= BIT0+BIT1;
+    P2IES |= BIT0+BIT1;
+    P2IFG &= ~(BIT0+BIT1);
+
+  _BIS_SR(GIE);
+
+
+}
+
+#pragma vector=TIMER0_A1_VECTOR
+__interrupt void timer(void)
+{
+	switch (TA0IV)
+	{
+	case 2: P1OUT &= ~((BIT0)<<idx);
+			break;
+	case 4: P1OUT &= ~((BIT1)<<idx);
+			break;
+	case 10:P1OUT |= ((BIT0+BIT1)<<idx);
+
+			//shift led
+			if (t==150)
+			{
+				if ((idx==0)||(idx==6))
+					stt=(stt==0);
+
+				if (stt==0)
+					idx++;
+				else idx--;
+
+				t=0;
+			}
+			else t++;
+			break;
+	}
+
+
+}
+
+#pragma vector=PORT2_VECTOR;
+__interrupt void test(void)
+{
+
+switch(P2IFG&(BIT0+BIT1))
+{
+case BIT0:
+	{
+
+	if (TA0CCR1==0)
+		TA0CCR1=3200;
+	else TA0CCR1-=200;
+	P2IFG &= ~BIT0;
+	break;
+	}
+
+
+case BIT1:
+	{
+		if (TA0CCR2==0)
+			TA0CCR2=3200;
+			else TA0CCR2-=200;
+			P2IFG &= ~BIT1;
+			break;
+	}
+}
+}
