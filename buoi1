@@ -1,0 +1,76 @@
+#include <msp430.h> 
+int d; //direction 0=left 1=right;
+void IO_Init()
+{
+	P1DIR=0xFF;
+}
+void Button_Init()
+{
+	P2DIR&=~BIT0+BIT1;
+	P2REN |= BIT0+BIT1;
+	P2OUT|= BIT0+BIT1;
+
+	P2IE |= BIT0+BIT1;
+	P2IES |= BIT0+BIT1;
+	P2IFG &= ~BIT0+BIT1;
+
+	_BIS_SR(GIE);
+}
+void main(void) {
+    WDTCTL = WDTPW | WDTHOLD;	// Stop watchdog timer
+	
+    IO_Init();
+    Button_Init();
+
+    d=0;
+    P1OUT = ~BIT2;
+
+    while(1)
+    {
+    	__delay_cycles(200000);
+
+    	if  (((P1OUT^0xFF)&(BIT0+BIT7))!=(BIT0+BIT7))
+    	{
+
+    		//shift led
+    		if (d==0)
+
+    			P1OUT=~((P1OUT^0xFF)<<1);
+    		else
+    			P1OUT=~((P1OUT^0xFF)>>1);
+    		//change direction at the end and first
+    		   	if ((P1OUT^0xFF)&(BIT7+BIT0))
+    			d = (d==0);
+
+    	}
+    }
+}
+
+#pragma vector=PORT2_VECTOR;
+__interrupt void button(void)
+{
+	switch (P2IFG&(BIT0+BIT1))
+	{
+	case BIT0: 	if (!((P1OUT^0xFF)&(BIT7+BIT0))) //not change direction at the first and end
+				d = (d==0);
+				P2IFG &= ~BIT0;
+				break;
+	case BIT1:  if (((P1OUT^0xFF)&(BIT0+BIT7))==(BIT0+BIT7))	//set 8bits to 1 bit
+				{
+				P1OUT = ~BIT0;
+				d=0;
+				}
+				else
+					if ((P1OUT^0xFF)&(BIT0))
+						{
+						P1OUT=~( ((P1OUT^0xFF)<<1) | (P1OUT^0xFF));
+						}
+					else
+					{
+						if ((P1OUT^0xFF)&(BIT1))
+						d=0;
+						P1OUT=~( ((P1OUT^0xFF)>>1) | (P1OUT^0xFF));
+					}
+				P2IFG &= ~BIT1;
+	}
+}
